@@ -283,7 +283,7 @@ static void x11_authentication(string display, string trust, unsigned int timeou
       mkdir(cmnd.c_str(), 0777);
       cmnd = LN + " /tmp/.X11-unix/X0 " + confinement_path + "/tmp/.X11-unix/X0";
       system(cmnd.c_str());
-
+      
       restore_privilege();
 }
 
@@ -691,28 +691,43 @@ static rlim_t get_resource_limit(int resource) throw () {
 static void copy_support_paths(const string_set & support_paths) throw (runtime_error) {
       for (string_set::const_iterator i = support_paths.begin(); i != support_paths.end(); ++i) {
             string src = *i;
-
-            struct stat stt;
-            if (stat(src.c_str(), &stt)) {
-                  throw runtime_error(src + ": " + strerror(errno));
-            }
-
+            string wildcard ("*");
+            size_t found;
+            
+            found = src.find(wildcard);
+            
+            // Make the paths
 #ifdef linux
             string dstntn_pth = confinement_path + dirname(strdup(src.c_str()));
 #else
             string dstntn_pth = confinement_path + dirname(src.c_str());
-#endif
-            make_path(dstntn_pth.c_str());
+#endif      
 
-            // If it's just a file, copy it directly and continue.
-            if (! S_ISDIR(stt.st_mode)) {
-                  copy_file(src, confinement_path + src);
-                  continue;
-            }
+            if(found != string::npos)
+            {
+              // We found a wildcard, we'll use a command instead
+              string cmnd = CP + " -RL" + " " + src + " " + dstntn_pth + "";
+              if (system(cmnd.c_str())) {
+                    throw runtime_error("Could not copy " + src + " into " + confinement_path);
+              }
+            } else {
+              struct stat stt;
+              if (stat(src.c_str(), &stt)) {
+                    throw runtime_error(src + ": " + strerror(errno));
+              }
 
-            string cmnd = CP + " -RL" + " \"" + src + "\" \"" + dstntn_pth + "\"";
-            if (system(cmnd.c_str())) {
-                  throw runtime_error("Could not copy " + src + " into " + confinement_path);
+              make_path(dstntn_pth.c_str());
+
+              // If it's just a file, copy it directly and continue.
+              if (S_ISREG(stt.st_mode)) {
+                    copy_file(src, confinement_path + src);
+                    continue;
+              }
+
+              string cmnd = CP + " -RL" + " \"" + src + "\" \"" + dstntn_pth + "\"";
+              if (system(cmnd.c_str())) {
+                    throw runtime_error("Could not copy " + src + " into " + confinement_path);
+              }
             }
       }
 }
