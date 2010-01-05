@@ -838,18 +838,21 @@ int main(int argc, char *argv[]) {
       string cookie_trust = "untrusted";
       bool vrbs = false;
       string_set sprt_pths;
-
+      string confinement_root = DEFAULT_CONFINEMENT_ROOT;
 
       /* Parse command line. */
 
       char c;
-      while (-1 != (c = getopt(argc, argv, "a:c:d:D:f:hm:M:n:p:r:s:St:Tvz:"))) {
+      while (-1 != (c = getopt(argc, argv, "a:c:C:d:D:f:hm:M:n:p:r:s:St:Tvz:"))) {
             switch (c) {
             case 'a':
                   lmt_all = strtoll(optarg, NULL, 0);
                   break;
             case 'c':
                   lmt_cr = strtoll(optarg, NULL, 0);
+                  break;
+            case 'C':
+                  confinement_root = string(optarg);
                   break;
             case 'd':
                   lmt_dta = strtoll(optarg, NULL, 0);
@@ -902,6 +905,10 @@ int main(int argc, char *argv[]) {
                   return 1;
             }
       }
+      
+      if(!confinement_root.empty())
+        CONFINEMENT_ROOT = confinement_root;
+      
       argc -= optind;
       argv += optind;
 

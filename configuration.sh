@@ -49,7 +49,8 @@ fi
 
 echo "
 const static bool DEBUG = true;
-const string CONFINEMENT_ROOT = \"/var/isolation\";
+const string DEFAULT_CONFINEMENT_ROOT = \"/var/isolation\";
+string CONFINEMENT_ROOT;
 const mode_t CONFINEMENT_ROOT_MODE = 040755;
 const string DEFAULT_PATH = \"/bin:/usr/bin:/usr/local/bin\";
 const string RESOLV_CONF = \"/etc/resolv.conf\";
