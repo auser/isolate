@@ -837,6 +837,7 @@ int main(int argc, char *argv[]) {
             ;
       string cookie_trust = "untrusted";
       bool vrbs = false;
+      string image_path;
       string_set sprt_pths;
       string confinement_root = DEFAULT_CONFINEMENT_ROOT;
       
@@ -856,7 +857,7 @@ int main(int argc, char *argv[]) {
       /* Parse command line. */
 
       char c;
-      while (-1 != (c = getopt(argc, argv, "a:c:C:d:D:e:f:hm:M:n:p:r:s:St:Tvz:"))) {
+      while (-1 != (c = getopt(argc, argv, "a:c:C:d:D:e:f:i:hm:M:n:p:r:s:St:Tvz:"))) {
             switch (c) {
             case 'a':
                   lmt_all = strtoll(optarg, NULL, 0);
@@ -876,6 +877,9 @@ int main(int argc, char *argv[]) {
             case 'e':
                   if (curr_env_vars <= max_env_vars)
                     env_vars[curr_env_vars++] = strdup(optarg);
+                  break;
+            case 'i':
+                  image_path = string(optarg);
                   break;
             case 'f':
                   lmt_fls = strtoll(optarg, NULL, 0);
@@ -1004,6 +1008,16 @@ int main(int argc, char *argv[]) {
             throw runtime_error("Could not mount devfs on " + devfs_pth);
       }
 #endif
+
+      if (!image_path.empty())
+      {      
+        cmnd = MOUNT + " -o ro -o loop " + image_path + " " + confinement_path;
+        
+        cout << " command " << cmnd << endl;
+        if (system(cmnd.c_str())) {
+              throw runtime_error("Could not mount "+ image_filepath);
+        }
+      }
 
       /* Fork to do the isolation. */
 
