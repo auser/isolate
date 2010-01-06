@@ -848,12 +848,10 @@ int main(int argc, char *argv[]) {
         "HOME=/"
       };
       const int max_env_vars = 1000;
-      
       char *env_vars[max_env_vars];
       
-      memcpy(env_vars, default_env_vars, (min((int)max_env_vars, (int)sizeof(default_env_vars)) * sizeof(char*)));
-      
-      curr_env_vars = sizeof(default_env_vars) / sizeof(char*);
+      memcpy(env_vars, default_env_vars, (min((int)max_env_vars, (int)sizeof(default_env_vars)) * sizeof(char)));
+      curr_env_vars = sizeof(default_env_vars) / sizeof(char);
       
       /* Parse command line. */
 
@@ -877,9 +875,7 @@ int main(int argc, char *argv[]) {
                   break;
             case 'e':
                   if (curr_env_vars <= max_env_vars)
-                  {
                     env_vars[curr_env_vars++] = strdup(optarg);
-                  }
                   break;
             case 'f':
                   lmt_fls = strtoll(optarg, NULL, 0);
