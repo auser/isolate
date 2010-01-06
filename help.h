@@ -5,7 +5,7 @@
 const string HELP_MESSAGE =
 "Usage: isolate [-hTvMS] [-D path] [-a bytes] [-c bytes] [-d bytes] [-f files]\n"
 "               [-m bytes] [-n bytes] [-p processes] [-r bytes] [-s bytes]\n"
-"               [-C path] [-i img] [-e env_string]\n"
+"               [-C path] [-i img] [-e env_string] -b [dir]\n"
 "               [-t seconds] [-z bytes] program [program-arguments...]\n"
 "\n OPTIONS\n"
 " -h            show this message\n"
@@ -24,6 +24,7 @@ const string HELP_MESSAGE =
 " -r [bytes]    limit the maximum resident set size to [bytes]\n"
 " -s [bytes]    limit the maximum size of the stack to [bytes]\n"
 " -C [path]     store the confinement path to [path]\n"
+" -b [path]     use this path as a root directory to copy from, rather than create a new one\n"
 " -i [img]      mount the loopback [img] file to /home\n"
 " -e [str]      set an environment variable using a string of the format PARAM=value\n"
 " -t [seconds]  set the maximum amount of CPU time the process can consume\n"

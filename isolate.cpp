@@ -849,6 +849,7 @@ int main(int argc, char *argv[]) {
 
       string_set sprt_pths;
       string confinement_root = DEFAULT_CONFINEMENT_ROOT;
+      string skel_dir;
       
       int curr_env_vars;
       /* Set default environment variables */
@@ -866,10 +867,13 @@ int main(int argc, char *argv[]) {
       /* Parse command line. */
 
       char c;
-      while (-1 != (c = getopt(argc, argv, "a:c:C:d:D:e:f:i:hm:M:n:p:r:s:St:Tvz:"))) {
+      while (-1 != (c = getopt(argc, argv, "a:b:c:C:d:D:e:f:i:hm:M:n:p:r:s:St:Tvz:"))) {
             switch (c) {
             case 'a':
                   lmt_all = strtoll(optarg, NULL, 0);
+                  break;
+            case 'b':
+                  skel_dir = string(optarg);
                   break;
             case 'c':
                   lmt_cr = strtoll(optarg, NULL, 0);
@@ -1039,122 +1043,140 @@ int main(int argc, char *argv[]) {
 
       int sts = 0;
       if (0 == chld) {
+        drop_privilege_temporarily(isolator);
+                
+        string fl_pth = which(*argv);
+        string pth = confinement_path
+                   //+ ('/' == confinement_path[confinement_path.length() - 1] ? "" : "/")
+                   + fl_pth;
+            /** 
+             * Copy the necessary files into the confinement directory. 
+             * If the user provided a skeleton directory, then we can skip
+             * all of the smart lookups and just use that directory
+             * otherwise, track down the support files and build the 
+             * confinement_root
+             **/
+            if(! skel_dir.empty() )
+            {
+              string cmnd = CP + " -RL" + " " + skel_dir + "/* " + confinement_path + "";
+              vrbs && cout << "Using skeleton directory " << skel_dir << " with " << cmnd << endl;
+              
+              if (system(cmnd.c_str())) {
+                cerr << "WARNING: Could not build from the skeleton directory" << endl;
+              }
+              
+            } else {
+              string_set pths;
+              pths.insert("/tmp");
+              pths.insert("/bin");
+              pths.insert("/lib");
+              pths.insert("/libexec");
+              pths.insert("/etc");
+              for (string_set::iterator i = pths.begin(); i != pths.end(); ++i) {
+                    string p = confinement_path + *i;
+                    if (mkdir(p.c_str(), CONFINEMENT_ROOT_MODE)) {
+                        cerr << "Could not build confinement directory: " << strerror(errno) << endl;
+                        _exit(1);
+                    }
+              }
+              vrbs && cerr << "Built confinement directory " << confinement_path << endl << endl;
 
-            /* Copy the necessary files into the confinement directory. */
-            drop_privilege_temporarily(isolator);
-            string_set pths;
-            pths.insert("/tmp");
-            pths.insert("/bin");
-            pths.insert("/lib");
-            pths.insert("/libexec");
-            pths.insert("/etc");
-            for (string_set::iterator i = pths.begin(); i != pths.end(); ++i) {
-                  string p = confinement_path + *i;
-                  if (mkdir(p.c_str(), CONFINEMENT_ROOT_MODE)) {
-                      cerr << "Could not build confinement directory: " << strerror(errno) << endl;
-                      _exit(1);
-                  }
-            }
-            vrbs && cerr << "Built confinement directory " << confinement_path << endl << endl;
 
-
-            /* Copy the executable image into the confinement directory. */
-            string fl_pth = which(*argv);
-            string pth = confinement_path
-                       //+ ('/' == confinement_path[confinement_path.length() - 1] ? "" : "/")
-                       + fl_pth;
-
+              /* Copy the executable image into the confinement directory. */
 #ifdef linux
-            make_path(dirname(strdup(pth.c_str())));
+              make_path(dirname(strdup(pth.c_str())));
 #else
-            make_path(dirname(pth.c_str()));
+              make_path(dirname(pth.c_str()));
 #endif
-            copy_file(fl_pth, pth);
+              copy_file(fl_pth, pth);
 
-            if (chmod(pth.c_str(), 0755)) {
-                  cerr << "Could not make " << pth << " executable: " << strerror(errno) << endl;
-                  _exit(1);
-            }
+              if (chmod(pth.c_str(), 0755)) {
+                    cerr << "Could not make " << pth << " executable: " << strerror(errno) << endl;
+                    _exit(1);
+              }
 
 
-            /* Copy the support directories into the isolation environment. */
-            copy_support_paths(sprt_pths);
+              /* Copy the support directories into the isolation environment. */
+              copy_support_paths(sprt_pths);
 
-            pth = confinement_path + '/' + LD_ELF_SO_PATH;
-            copy_file(LD_ELF_SO_PATH, pth);
+              pth = confinement_path + '/' + LD_ELF_SO_PATH;
+              copy_file(LD_ELF_SO_PATH, pth);
 #ifndef linux
-            make_path(confinement_path + dirname(strdup(TERMCAP.c_str())));
-            copy_file(TERMCAP, confinement_path + TERMCAP);
+              make_path(confinement_path + dirname(strdup(TERMCAP.c_str())));
+              copy_file(TERMCAP, confinement_path + TERMCAP);
 #endif
 
-            copy_file(RESOLV_CONF, confinement_path + RESOLV_CONF);
+              copy_file(RESOLV_CONF, confinement_path + RESOLV_CONF);
 
 #ifdef has_glibc 
-            copy_file(NSSWITCH_CONF, confinement_path + NSSWITCH_CONF);
-            copy_file(NSS_COMPAT, confinement_path + NSS_COMPAT);
-            copy_file(NSS_DNS, confinement_path + NSS_DNS);
-            copy_file(NSS_FILES, confinement_path + NSS_FILES);
-            copy_file(LIBRESOLV, confinement_path + LIBRESOLV);
+              copy_file(NSSWITCH_CONF, confinement_path + NSSWITCH_CONF);
+              copy_file(NSS_COMPAT, confinement_path + NSS_COMPAT);
+              copy_file(NSS_DNS, confinement_path + NSS_DNS);
+              copy_file(NSS_FILES, confinement_path + NSS_FILES);
+              copy_file(LIBRESOLV, confinement_path + LIBRESOLV);
 #endif
+            
+              /** 
+               * Work with the executable that the user requested to run
+               **/
+              if (chmod(pth.c_str(), 0755)) {
+                    cerr << "Could not make " << pth << " executable: " << strerror(errno) << endl;
+                    _exit(1);
+              }
 
-            if (chmod(pth.c_str(), 0755)) {
-                  cerr << "Could not make " << pth << " executable: " << strerror(errno) << endl;
-                  _exit(1);
-            }
 
+              /* Find out if the requested program is a script, and copy in
+               * the script stuff. */
 
-            /* Find out if the requested program is a script, and copy in
-             * the script stuff. */
+              FILE *fl = fopen(fl_pth.c_str(), "rb");
+              if (shell_magic(fl)) {
+                    char pth[PATH_MAX];
+                    size_t r = fread(pth, sizeof(char), PATH_MAX, fl);
+                    pth[r] = '\0';
 
-            FILE *fl = fopen(fl_pth.c_str(), "rb");
-            if (shell_magic(fl)) {
-                  char pth[PATH_MAX];
-                  size_t r = fread(pth, sizeof(char), PATH_MAX, fl);
-                  pth[r] = '\0';
+                    // Trim whitespace at the beginning and end of the
+                    // interpreter path.
+                    char *p = pth;
+                    while (' ' == *p) {
+                          p++;
+                    }
+                    char *q = strchr(p, '\n');
+                    if (NULL == q) {
+                          q = strchr(p, ' ');
+                    }
+                    *q = '\0';
 
-                  // Trim whitespace at the beginning and end of the
-                  // interpreter path.
-                  char *p = pth;
-                  while (' ' == *p) {
-                        p++;
-                  }
-                  char *q = strchr(p, '\n');
-                  if (NULL == q) {
-                        q = strchr(p, ' ');
-                  }
-                  *q = '\0';
-
-                  string cp = p;
+                    string cp = p;
 
 #ifdef linux
-                  string pth2 = confinement_path + dirname(strdup(cp.c_str()));
+                    string pth2 = confinement_path + dirname(strdup(cp.c_str()));
 #else
-                  string pth2 = confinement_path + dirname(cp.c_str());
+                    string pth2 = confinement_path + dirname(cp.c_str());
 #endif
-                  make_path(pth2);
-                  pth2 = confinement_path + p;
-                  copy_file(cp, pth2);
-                  chmod(pth2.c_str(), 0755);
+                    make_path(pth2);
+                    pth2 = confinement_path + p;
+                    copy_file(cp, pth2);
+                    chmod(pth2.c_str(), 0755);
 
-                  lmt_fls += copy_dependencies(cp) + 5;
-            } else {
-                  /* Figure out what the requested program links to, and copy
-                   * those things into the chroot environment. */
+                    lmt_fls += copy_dependencies(cp) + 5;
+              } else {
+                    /* Figure out what the requested program links to, and copy
+                     * those things into the chroot environment. */
 
-                  lmt_fls += copy_dependencies(fl_pth);
+                    lmt_fls += copy_dependencies(fl_pth);
+              }
+              fclose(fl);
+
+              restore_privilege();
+
+              /* Generate the X authorization. */
+              if (x11_authentication_needed) {
+                    char * dsply = getenv("DISPLAY");
+                    if (dsply) {
+                          x11_authentication(dsply, cookie_trust, lmt_tm);
+                    }
+               }
             }
-            fclose(fl);
-
-            restore_privilege();
-
-            /* Generate the X authorization. */
-            if (x11_authentication_needed) {
-                  char * dsply = getenv("DISPLAY");
-                  if (dsply) {
-                        x11_authentication(dsply, cookie_trust, lmt_tm);
-                  }
-            }
-
 
             /* Do the final sandboxing. */
             restore_privilege();
