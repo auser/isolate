@@ -706,6 +706,7 @@ static void copy_support_paths(const string_set & support_paths) throw (runtime_
             if(found != string::npos)
             {
               // We found a wildcard, we'll use a command instead
+              make_path(dstntn_pth.c_str());
               string cmnd = CP + " -RL" + " " + src + " " + dstntn_pth + "";
               if (system(cmnd.c_str())) {
                     throw runtime_error("Could not copy " + src + " into " + confinement_path);
@@ -731,7 +732,6 @@ static void copy_support_paths(const string_set & support_paths) throw (runtime_
             }
       }
 }
-
 
 /**
  * Performs necessary filesystem clean-up after the isolatee exits.
@@ -839,11 +839,26 @@ int main(int argc, char *argv[]) {
       bool vrbs = false;
       string_set sprt_pths;
       string confinement_root = DEFAULT_CONFINEMENT_ROOT;
-
+      
+      int curr_env_vars;
+      /* Set default environment variables */
+      /* We need to set this so that the loader can find libs in /usr/local/lib. */
+      const char* default_env_vars[] = {
+        "LD_LIBRARY_PATH=/lib;/usr/lib;/usr/local/lib", 
+        "HOME=/"
+      };
+      const int max_env_vars = 1000;
+      
+      char *env_vars[max_env_vars];
+      
+      memcpy(env_vars, default_env_vars, (min((int)max_env_vars, (int)sizeof(default_env_vars)) * sizeof(char*)));
+      
+      curr_env_vars = sizeof(default_env_vars) / sizeof(char*);
+      
       /* Parse command line. */
 
       char c;
-      while (-1 != (c = getopt(argc, argv, "a:c:C:d:D:f:hm:M:n:p:r:s:St:Tvz:"))) {
+      while (-1 != (c = getopt(argc, argv, "a:c:C:d:D:e:f:hm:M:n:p:r:s:St:Tvz:"))) {
             switch (c) {
             case 'a':
                   lmt_all = strtoll(optarg, NULL, 0);
@@ -859,6 +874,12 @@ int main(int argc, char *argv[]) {
                   break;
             case 'D':
                   sprt_pths.insert(string(optarg));
+                  break;
+            case 'e':
+                  if (curr_env_vars <= max_env_vars)
+                  {
+                    env_vars[curr_env_vars++] = strdup(optarg);
+                  }
                   break;
             case 'f':
                   lmt_fls = strtoll(optarg, NULL, 0);
@@ -1164,19 +1185,8 @@ int main(int argc, char *argv[]) {
             lmt_tm = min(lmt_tm, get_resource_limit(RLIMIT_CPU));
 
 
-            /* We are ready for launch. */
-
-            /* We need to set this so that the loader can find libs in
-             * /usr/local/lib. */
-            char * const nvrnmnt[] = { "LD_LIBRARY_PATH=/lib;/usr/lib;/usr/local/lib",
-                                       "DISPLAY=:0.0",
-                                       "HOME=/",
-                                       "LOGNAME=isolator",
-                                       "USER=isolator",
-                                       "TERM=vt100",
-                                       "XAUTHORITY=/.Xauthority",
-                                       NULL };
-            execve(fl_pth.c_str(), argv, nvrnmnt);
+            /* We are ready for launch. */          
+            execve(fl_pth.c_str(), argv, env_vars);
             cerr << "Could not execute " << *argv << ": " << strerror(errno) << endl;
             _exit(errno);
       }
