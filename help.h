@@ -7,7 +7,7 @@ const string HELP_MESSAGE =
 "               [-m bytes] [-n bytes] [-p processes] [-r bytes] [-s bytes]\n"
 "               [-C path] [-i img] [-e env_string]\n"
 "               [-t seconds] [-z bytes] program [program-arguments...]\n"
-"  OPTIONS\n"
+"\n OPTIONS\n"
 " -h            show this message\n"
 " -T            set the cookie as trusted for X11 authentication\n"
 " -v            turn on verbose printing\n"
