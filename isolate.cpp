@@ -52,6 +52,8 @@ typedef set<string> string_set;
 /* Global variables. */
 
 static string confinement_path;
+string image_path;
+
 static uid_t isolator, invoker;
 // These have to be global so that clean_up can take no arguments (and hence
 // be a suitable atexit handler).
@@ -745,6 +747,13 @@ static void clean_up() throw () {
             cerr << "WARNING: Could not unmount " << pth << endl;
       }
 #endif
+      
+      if(!image_path.empty())
+      {
+        if (system( (UMOUNT + ' ' + confinement_path + "/home").c_str() )) {
+              cerr << "WARNING: Could not unmount " << image_path << endl;
+        }
+      }
 
       if (save_isolation_path) {
             string cmnd = CHOWN + " -R " + to_string(getuid(), 10) + ':' + to_string(getgid(), 10)
@@ -837,7 +846,7 @@ int main(int argc, char *argv[]) {
             ;
       string cookie_trust = "untrusted";
       bool vrbs = false;
-      string image_path;
+
       string_set sprt_pths;
       string confinement_root = DEFAULT_CONFINEMENT_ROOT;
       
@@ -1010,12 +1019,14 @@ int main(int argc, char *argv[]) {
 #endif
 
       if (!image_path.empty())
-      {      
-        cmnd = MOUNT + " -o ro -o loop " + image_path + " " + confinement_path;
+      {
+        string at = confinement_path + "/home";
         
-        cout << " command " << cmnd << endl;
+        make_path(at);
+        cmnd = MOUNT + " -o ro -o loop " + image_path + " " + at;
+        
         if (system(cmnd.c_str())) {
-              throw runtime_error("Could not mount "+ image_filepath);
+              throw runtime_error("Could not mount "+ image_path);
         }
       }
 
